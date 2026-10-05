@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: did
+      POSTGRES_PASSWORD: did
+      POSTGRES_DB: did_panel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U did -d did_panel"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    # 不向宿主机暴露端口：只允许 app 通过 compose 内部网络访问
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://did:did@db:5432/did_panel
+    ports:
+      - "8000:8000"   # 对外只开 HTTP
+
+  # 一次性测试容器：docker compose --profile test run --rm tests
+  tests:
+    build: .
+    entrypoint: ["sh", "scripts/run-tests.sh"]
+    command: []
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://did:did@db:5432/did_panel
+    profiles: ["test"]
+
+volumes:
+  pgdata:
