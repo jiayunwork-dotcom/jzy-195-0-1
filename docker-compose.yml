@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: panel
+      POSTGRES_PASSWORD: panel
+      POSTGRES_DB: panelapp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # 只在 compose 内部网络暴露端口，不对宿主发布 5432。
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panel -d panelapp"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://panel:panel@db:5432/panelapp
+      # 覆盖此处或通过 .env 注入即可切换连接串。
+    ports:
+      # 对外只开 HTTP。
+      - "8000:8000"
+
+volumes:
+  pgdata:
